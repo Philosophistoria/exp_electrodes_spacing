@@ -6,6 +6,7 @@
 
 
 import processing.serial.*;
+import controlP5.*;
 
 Serial myPort;      // The serial port
 int whichKey = -1;  // Variable to hold keystoke values

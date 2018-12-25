@@ -4,6 +4,7 @@ import processing.event.*;
 import processing.opengl.*; 
 
 import processing.serial.*; 
+import controlP5.*; 
 
 import java.util.HashMap; 
 import java.util.ArrayList; 
@@ -21,6 +22,7 @@ public class exp_electrodes_spacing extends PApplet {
  *  Inherited from a code by Tom Igoe. 
  *  \author  Akifumi Takahashi
  */
+
 
 
 
