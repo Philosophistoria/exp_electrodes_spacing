@@ -9,9 +9,10 @@ import java.util.Arrays;
 import processing.serial.*;
 import controlP5.*;
 
+controlP5 cP5;
 Serial myPort;      // The serial port
 int[] inByte;    // Incoming serial data
-int whichKey = -1;  // Variable to hold keystoke values
+int inKey = -1;  // Variable to hold keystoke values
 int portindex = 0;
 
 void setup() {
@@ -45,7 +46,7 @@ void setup() {
 void draw() {
   background(0);
   text("Last Received: " + inByte[0], 10, 130);
-  text("Last Sent: " + whichKey, 10, 100);
+  text("Last Sent: " + inKey, 10, 100);
 }
 
 void serialEvent(Serial myPort) {
@@ -55,5 +56,5 @@ void serialEvent(Serial myPort) {
 void keyPressed() {
   // Send the keystroke out:
   myPort.write(key);
-  whichKey = key;
+  inKey = key;
 }
