@@ -11,14 +11,11 @@ import processing.core.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-public class Exp_GUI
+public class Exp_GUI 
+implements ControlListener
 {
-    private final int WINDOW_X;
-    private final int WINDOW_Y;
-    private final int UNIT_DIV20_X;
-    private final int UNIT_DIV20_Y;
-
     //  GUI objects
+    ControlP5 cp5;
     class SmoothBarGage 
     {
         Slider slider;
@@ -33,16 +30,24 @@ public class Exp_GUI
             this(s, 0.4f);
         }
     }
-    SmoothBarGage currentHGage;
-    SmoothBarGage completeGage;
-    private Chart waveIndicator;
-    private ScrollableList portlist, handedness;
-    private Textfield tbox_name, tbox_len, tbox_cir; 
-    private Button button_save, button_start;
+    public SmoothBarGage currentHGage;
+    public SmoothBarGage completeGage;
+    public Chart waveIndicator;
+    public ScrollableList portlist, handedness;
+    private Integer portindex = -1, handindex = -1;
+    public Textfield tbox_name, tbox_len, tbox_cir; 
+    public Button button_save, button_start;
 
+    //  Constants & Variable for controlling the cursor
     final float cursor_speed;
     final PVector[] sel_cord;
     PVector cursor_cord;
+
+    //  Window size unit
+    private final int WINDOW_X;
+    private final int WINDOW_Y;
+    private final int UNIT_DIV20_X;
+    private final int UNIT_DIV20_Y;
     
     //colors of button
     private int clr_button_yet;
@@ -57,9 +62,6 @@ public class Exp_GUI
     private boolean button_saveF = false;
     private boolean button_startF = false;
 
-    //User data
-    int handindex = -1;
-    float completeRate;
 
     public Exp_GUI (PApplet theParent, int arg_WINDOW_X, int arg_WINDOW_Y)
     {
@@ -84,22 +86,20 @@ public class Exp_GUI
         clrunit = 100;
 
         //
-        //  Event Linteners
-        //
-
-        //
         //  GUI Setup
         //
-        ControlP5 cp5 = new ControlP5(theParent);
+        cp5 = new ControlP5(theParent);
+        cp5.addListener(this);
         //  for select serial port
         //  List all the available serial ports:
-        portlist = cp5.addScrollableList("Serial_Port")
+        portlist = cp5.addScrollableList("SerialPort")
             .setLabel("Serial Port")
             .setPosition(UNIT_DIV20_X, UNIT_DIV20_Y)
             .setSize(UNIT_DIV20_X * 3 , UNIT_DIV20_Y * 3)
             .setBarHeight(UNIT_DIV20_Y)
             .setItemHeight(UNIT_DIV20_Y)
             .setType(ScrollableList.DROPDOWN) // currently supported DROPDOWN and LIST
+            .close()
             .setFont(subFont)
             ;
         portlist.getCaptionLabel().align(ControlP5.LEFT, ControlP5.CENTER);
@@ -116,6 +116,7 @@ public class Exp_GUI
             .setItemHeight(UNIT_DIV20_Y)
             .addItems(Arrays.asList("Left", "Right"))
             .setType(ScrollableList.DROPDOWN) // currently supported DROPDOWN and LIST
+            .close()
             .setFont(subFont)
             ;
         handedness.getCaptionLabel().align(ControlP5.LEFT, ControlP5.CENTER);
@@ -130,17 +131,15 @@ public class Exp_GUI
             .setFont(subFont)
             ;
 
-        button_save = cp5.addButton("Save_Button")
+        button_save = cp5.addButton("SaveButton")
             .setLabel("Save")
-            .setValue(0)
             .setPosition(UNIT_DIV20_X * 17, UNIT_DIV20_Y)
             .setSize(UNIT_DIV20_X * 2 , UNIT_DIV20_Y)
             .setColorBackground(clr_button_yet)
             .setFont(subFont)
             ;
-        button_start = cp5.addButton("Start_Button")
+        button_start = cp5.addButton("StartButton")
             .setLabel("Start")
-            .setValue(0)
             .setPosition(UNIT_DIV20_X * 17, UNIT_DIV20_Y * 5)
             .setSize(UNIT_DIV20_X * 2 , UNIT_DIV20_Y)
             .setColorBackground(clr_button_yet)
@@ -204,87 +203,41 @@ public class Exp_GUI
 
     }
 
-    //
-    //  Event handler
-    //
-    private void Serial_Port (int n)
-    {
-        portindex = n;
-        println("serial port: " + n);
-    }
-    private void Handedness (int n)
-    {
-        handindex = n;
-        println("handedness: " + n);
-    }
-    private void Save_Button ()
-    {
-        if (portindex >= 0 
-            && handindex >= 0 
-            && tbox_name.getIndex() > 0 
-            && tbox_len.getIndex() > 0 
-            && tbox_cir.getIndex() > 0
-        ) {
-            saveButtonL.actionPerformed(new ActionEvent(this, 0, "Save_Button"));
-            println(tbox_name.getText() + "," + tbox_len.getText() + "," + tbox_cir.getText());
-            button_save.setColorBackground(clr_button_done);
-            button_saveF = true;
-        }
-    }
-    private void Start_Button()
-    {
-        if (button_saveF) {
-            startButtonL.actionPerformed(new ActionEvent(this, 0, "Start_Button"));
-            button_start.setColorBackground(clr_button_done);
-            button_startF = true;
-        }
-    }
 
+    //@Override
+    public void controlEvent(ControlEvent e)
+    {
+        switch (e.getController().getName()) {
+            case "SerialPort":
+                portindex = (int)e.getValue();
+                break;
+            case "Handedness":
+                handindex = (int)e.getValue();
+                break;
+            case "SaveButton":
+                if(!button_saveF) {
+                    saveButtonL.actionPerformed(new ActionEvent(this, 0, "SaveButton"));
+                }
+                if (button_saveF){
+                    button_save.setColorBackground(clr_button_done);
+                    button_save.setLabel("Done");
+                }
+                break;
+            case "StartButton":
+                if(button_saveF && !button_startF) {
+                    startButtonL.actionPerformed(new ActionEvent(this, 0, "StartButton"));
+                }
+                if(button_startF) {
+                    button_start.setColorBackground(clr_button_done);
+                    button_start.setLabel("Started");
+                }
+                break;	
+        }
+
+    }
     //
     //  public method
     //
-    public void setSaveButtonListener (ActionListener l)
-    {
-        saveButtonL = l;
-    }
-    public void setStartButtonListener(ActionListener l)
-    {
-        startButtonL = l;
-    }
-    public void addItems_ofPortList(String[] arg_s)
-    {
-        portlist.addItems(arg_s);
-    }
-
-    public void updateGageValue(SmoothBarGage arg_gage, float arg_rateval)
-    {
-        arg_gage.buffer += arg_gage.rate * (arg_rateval - arg_gage.buffer);
-        if(abs(arg_gage.buffer - arg_rateval) < 0.01) arg_gage.buffer = arg_rateval;
-        setGageValue(arg_gage.slider, arg_gage.buffer);
-    }
-
-    private void setGageValue(Slider arg_gage, float arg_rateval)
-    {
-        arg_gage.setValue(
-            arg_gage.getMin() 
-            + arg_rateval * (arg_gage.getMax() - arg_gage.getMin())
-        );
-    }
-
-    public void updatePulseMonitor(int arg_fc, int arg_ph, int arg_pp, int arg_pw)
-    {
-        // unshift: add data from left to right (first in) //myChart.unshift("incoming", (sin(frameCount*0.1)*20));
-        
-        // push: add data from right to left (last in)
-        //  In the case to show 6 period when pp = 2500 [us], buffer size = 300
-        //  size of time window = 15000 [us]
-        //  one frame = 50 [us]
-        if((arg_fc % (arg_pp / 50)) < ((arg_pp - arg_pw) / 50))
-            waveIndicator.push("incoming", 0);
-        else
-            waveIndicator.push("incoming", 10 * (float)arg_ph / 4095f);
-    }
-
 
     final String[] flowCapion = {
         "(Reference)  Cutaneous Thre.",
@@ -338,7 +291,6 @@ public class Exp_GUI
         }
     }
 
-    //  #region
     public void toggle_selection (int arg_val, boolean arg_visible)
     {
         int cunit;
@@ -374,6 +326,111 @@ public class Exp_GUI
             popMatrix();
         }
     }
-    //  #endregion
+    //
+    //  setters
+    //
+    public void setSaveButtonFlag(boolean b)
+    {
+        button_saveF = b;
+    }
+    public void setStartButtonFlag(boolean b)
+    {
+        button_startF = b;
+    }
+    public void setSaveButtonListener (ActionListener l)
+    {
+        saveButtonL = l;
+    }
+    public void setStartButtonListener(ActionListener l)
+    {
+        startButtonL = l;
+    }
+    public void addItems_ofPortList(String[] arg_s)
+    {
+        portlist.addItems(arg_s);
+    }
+    public void updateGageValue(SmoothBarGage arg_gage, float arg_rateval)
+    {
+        arg_gage.buffer += arg_gage.rate * (arg_rateval - arg_gage.buffer);
+        if(abs(arg_gage.buffer - arg_rateval) < 0.01) arg_gage.buffer = arg_rateval;
+        setGageValue(arg_gage.slider, arg_gage.buffer);
+    }
+    private void setGageValue(Slider arg_gage, float arg_rateval)
+    {
+        arg_gage.setValue(
+            arg_gage.getMin() 
+            + arg_rateval * (arg_gage.getMax() - arg_gage.getMin())
+        );
+    }
+    public void updatePulseMonitor(int arg_fc, int arg_ph, int arg_pp, int arg_pw)
+    {
+        // unshift: add data from left to right (first in) //myChart.unshift("incoming", (sin(frameCount*0.1)*20));
+        
+        // push: add data from right to left (last in)
+        //  In the case to show 6 period when pp = 2500 [us], buffer size = 300
+        //  size of time window = 15000 [us]
+        //  one frame = 50 [us]
+        if((arg_fc % (arg_pp / 50)) < ((arg_pp - arg_pw) / 50))
+            waveIndicator.push("incoming", 0);
+        else
+            waveIndicator.push("incoming", 10 * (float)arg_ph / 4095f);
+    }
 
+    //
+    //  getter
+    //
+    public boolean getSaveButtonFlag()
+    {
+        return button_saveF;
+    }
+    public boolean getStartButtonFlag()
+    {
+        return button_startF;
+    }
+    public String getPortName()
+    {
+        String l_name = "";
+
+        if (portindex > -1)
+            l_name = portlist.getItem(portindex).get("name").toString(); 
+        println(l_name);
+
+        return l_name;
+    }
+    public String getUserName()
+    {
+        return tbox_name.getText();
+    }
+    public String getHandedness()
+    {
+        String l_name = ""; 
+
+        if (handindex > -1)
+            l_name = handedness.getItem(handindex).get("name").toString(); 
+        println(l_name);
+
+        return l_name;
+    }
+    public int getLength()
+    {
+        int retval = -1; 
+        try{
+            retval = Integer.parseInt(tbox_len.getText());
+        }
+        catch (NumberFormatException e){
+            println("non integer was input in len\n\t" + e);
+        }
+        return retval;
+    }
+    public int getCircumference()
+    {
+        int retval = -1; 
+        try{
+            retval = Integer.parseInt(tbox_cir.getText());
+        }
+        catch (NumberFormatException e){
+            println("non integer was input in circumference\n\t" + e);
+        }
+        return retval;
+    }
 }

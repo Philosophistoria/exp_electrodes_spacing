@@ -11,64 +11,129 @@ import processing.core.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+//  for GUI
 Exp_GUI mygui;
 int expflow;
 int stimopt;
 int selection;
-
 static final int 
-WINDOW_X = 800,
-WINDOW_Y = 450;
+  WINDOW_X = 800,
+  WINDOW_Y = 450;
 
 //  for serial com
 Serial myPort = (Serial)null;      // The serial port
 String[] portsAvailable;
-int portindex = -1;
+
+//  for file handling
+PrintWriter fwriter = (PrintWriter)null;
+
 byte[] inByte;        // Incoming serial data
 int inKey = -1;       // Variable to hold keystoke values
 
+//  for deta stored
 int ph = 0,
     pp = 2500, 
     pw = 200;
 
-void setup() {
-  //  16:9
-  size(16,9);
-  surface.setSize(WINDOW_X, WINDOW_Y);
-  frameRate(50);
-  // create a font with the third font available to the system:
-  printArray(PFont.list());
+//User data
+float completeRate;
 
+
+void setup() {
+  //  Prepare a main Window
+  //  size() cannot use variables
+  size(16,9);
+  //  resize with variables
+  surface.setSize(WINDOW_X, WINDOW_Y);
+
+  frameRate(60);
+
+  // create a font with the third font available to the system:
+  //printArray(PFont.list());
+
+  //  Prepare GUI feature
   mygui = new Exp_GUI(this, WINDOW_X, WINDOW_Y);
+
+  //  get list of serial ports available
+  portsAvailable = Serial.list();
+  printArray(portsAvailable);
+  mygui.addItems_ofPortList(portsAvailable);
   mygui.setSaveButtonListener(new ActionListener(){
     @Override
-    public void actionPerformed (ActionEvent e) {
-      myPort = new Serial(exp_electrodes_spacing.this, portsAvailable[portindex], 921600);
-      println("start button was pressed");
+    public void actionPerformed(ActionEvent e){
+      SaveButtonHandler();
     }
   });
   mygui.setStartButtonListener(new ActionListener(){
     @Override
-    public void actionPerformed (ActionEvent e) {
-      println("start button was pressed");
+    public void actionPerformed(ActionEvent e){
+      StartButtonHandler();
     }
   });
-
-  portsAvailable = Serial.list();
-  //  Check if any Serial Ports available
-  //  and list them
-  if (portsAvailable.length == 0) {
-      println("No ports are available, so that the program will be closed");
-      //exit();
-  }
-  else {
-      printArray(portsAvailable);
-      mygui.addItems_ofPortList(portsAvailable);
-  }
 
   //  Prepare memory to store data sent thru Serial.
   inByte = new byte[256];
   Arrays.fill(inByte, (byte)-1);
+}
+
+//
+//  Event handler
+//
+void SerialPort (int n)
+{
+    println("serial port: " + n);
+}
+void Handedness (int n)
+{
+    println("handedness: " + n);
+}
+void SaveButtonHandler ()
+{
+  println("save button was pressed");
+  //  User's Initial Data
+  String  pname, uname, uhand;
+  int     ulen, ucir;
+  //pname = mygui.getPortName();
+  uname = mygui.getUserName();
+  uhand = mygui.getHandedness();
+  ulen  = mygui.getLength();
+  ucir  = mygui.getCircumference();
+  if (//pname.length() > 0 && 
+      uhand.length() > 0 && 
+      uname.length() > 0 && 
+      ulen > -1 && 
+      ucir > -1 
+  ) {
+    //  open a serial port 
+    //myPort = new Serial(this, pname, 921600);
+    //println("Sirial Port: " + pname);
+
+    //  Open a file to save data
+    if(createReader(uname + ".csv") == null)
+      fwriter = createWriter(uname + ".csv");
+    else
+      for (int i = 0; fwriter == null; i++)
+        if(createReader(uname + "(" + i + ")" + ".csv") == null)
+          fwriter = createWriter(uname + "(" + i + ")" + ".csv");
+
+    //  Write the initial data
+    if (fwriter != null) {
+      fwriter.println(
+        uname + "," +
+        uhand + "," +
+        ulen  + "," +
+        ucir  + ","
+        );
+      fwriter.flush();
+    }
+    mygui.setSaveButtonFlag(true);
+  }
+}
+
+void StartButtonHandler()
+{
+  println("Start button was pressed");
+  mygui.setStartButtonFlag(true);
 }
 
 void draw() {
