@@ -19,6 +19,7 @@ int selection;
 static final int 
   WINDOW_X = 800,
   WINDOW_Y = 450;
+static final int FRAMERATE = 60;
 
 //  for serial com
 Serial myPort = (Serial)null;      // The serial port
@@ -37,16 +38,28 @@ int ph = 0,
 
 //User data
 float completeRate;
+int ph_skin = 0,
+    ph_force= 0,
+    ph_pain = 0,
+    ph_comp = 0;
+
+boolean ph_controllableF = false;
+
+int condition[][];
+int cond_ref;
+int cond_cmp;
 
 
-void setup() {
+void setup() 
+{
+  condition = new int[3][3];
   //  Prepare a main Window
   //  size() cannot use variables
   size(16,9);
   //  resize with variables
   surface.setSize(WINDOW_X, WINDOW_Y);
 
-  frameRate(60);
+  frameRate(FRAMERATE);
 
   // create a font with the third font available to the system:
   //printArray(PFont.list());
@@ -106,6 +119,7 @@ void SaveButtonHandler ()
   ) {
     //  open a serial port 
     //myPort = new Serial(this, pname, 921600);
+    //myPort.bufferUntil(lf);
     //println("Sirial Port: " + pname);
 
     //  Open a file to save data
@@ -129,7 +143,6 @@ void SaveButtonHandler ()
     mygui.setSaveButtonFlag(true);
   }
 }
-
 void StartButtonHandler()
 {
   println("Start button was pressed");
@@ -140,19 +153,58 @@ void draw() {
   background(0);
   text("Last Received: " + inByte[0], 10, 130);
   text("Last Sent: " + inKey, 10, 100);
-  
-  mygui.updatePulseMonitor(frameCount, ph, pp, pw);
-  mygui.updateGageValue(mygui.currentHGage, (float)ph/4095f);
-  expflow = (frameCount / 50) % 5;
-  mygui.toggle_flow (expflow);
-  //cursor_color_unit = 10 + (90 * (((frameCount / 50) % 5) == 4 ? 1 : 0));
-  mygui.toggle_selection(selection, expflow == 4);
-  mygui.toggle_stimopt ((frameCount / 50) % 2);
-  //mygui.setGageValue(completeGage, ((frameCount / 50) % 100) / 100);
-  mygui.updateGageValue(mygui.completeGage, (float)(int)((float)(frameCount % 1100) / 100f) / 10f);
-  //println((float)(int)((float)(frameCount % 1001) / 100f) / 10f);
-  //println((frameCount % 1001));
 
+  int fcmod = frameCount % (12 * FRAMERATE);
+  //  small rest
+  if (fcmod < 1 * FRAMERATE) {
+    mygui.setStimulationOFF();
+    //myPort.write('a');
+  }
+  //  stimulate
+  else if (fcmod < 6 * FRAMERATE) {
+    //  on reference condion
+    if(mygui.getFlowStatus() != FlowState.COMPARING){
+      mygui.setStimState(Left_Right.LEFT);
+      //myPort.write('a');
+    }
+    //  on reference condion
+    else {
+      mygui.setStimState(Left_Right.LEFT);
+      //myPort.write('a');
+    }
+  }
+  //  small rest
+  else if (fcmod < 7 * FRAMERATE) {
+    mygui.setStimulationOFF();
+    //myPort.write('a');
+  }
+  //  stimulate
+  else if (fcmod < 12 * FRAMERATE) {
+    //  on reference condion
+    if(mygui.getFlowStatus() != FlowState.COMPARING){
+      mygui.setStimState(Left_Right.LEFT);
+      //myPort.write('a');
+    }
+    //  on comparison condion
+    else {
+      mygui.setStimState(Left_Right.RIGHT);
+      //myPort.write('a');
+    }
+  }
+  else  //shouldnt be called
+    mygui.setStimulationOFF();
+    //myPort.write('a');
+
+  if (frameCount % FRAMERATE == 0){
+    //myPort.write('a');
+    //ph = (int)(myPort.readBytes(1)[0]);
+    //ph = ph << 8 | (int)(myPort.readBytes(1)[0]);
+  }
+  
+
+  mygui.updatePulseMonitor(frameCount, ph, pp, pw);
+  mygui.setCurrentHGageValue((float)ph/4095f);
+  mygui.update();
 }
 
 void serialEvent(Serial myPort) {
@@ -165,18 +217,98 @@ void keyPressed() {
     myPort.write(key);
     inKey = key;
   }
-  if(keyCode == UP) {
-    if(ph > 4095 - 50) ph = 4095;
-    else ph += 50;
+  switch (keyCode){
+    case UP:
+      switch(mygui.getFlowStatus()){
+        case COMPARING:
+          break;
+        default:
+          if(ph > 4095 - 50) ph = 4095;
+          else ph += 50;
+          break;        
+      }
+      break;
+    case DOWN:
+      switch(mygui.getFlowStatus()){
+        case COMPARING:
+          break;
+        default:
+          if (!ph_controllableF) break;
+          if(ph < 50) ph = 0;
+          else ph -= 50;
+          break;
+      }
+      break;
+    case LEFT:
+      mygui.setCursor(Left_Right.LEFT);
+      break;
+    case RIGHT:
+      mygui.setCursor(Left_Right.RIGHT);
+      break;
+    default :
+      //println("no keyCode");
+      break;	
   }
-  else if (keyCode == DOWN) {
-    if(ph < 50) ph = 0;
-    else ph -= 50;
-  }
-  else if (keyCode == LEFT) {
-    selection = 0;
-  }
-  else if (keyCode == RIGHT) {
-    selection = 1;
+  switch (key){
+    case ENTER:
+      switch(mygui.getFlowStatus()){
+        case OUT_OF_PROC:
+          if (!mygui.getSaveButtonFlag()) 
+            mygui.fireSaveButton();
+          else if (!mygui.getStartButtonFlag()) 
+            mygui.fireStartButton();
+          if (mygui.getStartButtonFlag()) 
+            if(mygui.getCompleteGageValue() < 1.0f) {
+              mygui.setFlowState(FlowState.THRE_SKIN);
+              ph = 0;
+              frameCount = 0;
+            }
+            else{
+              for (int[] itr : condition) for (int jtr : itr) fwriter.println(jtr);
+              fwriter.flush();
+              fwriter.close();
+              println("ALL PROCESS HAVE DONE");
+            }
+          break;
+        case THRE_SKIN:
+          ph_skin = ph;
+          mygui.setFlowState(FlowState.THRE_FORCE);
+          ph = 0;
+          frameCount = 0;
+          break;
+        case THRE_FORCE:
+          ph_force = ph;
+          mygui.setFlowState(FlowState.THRE_PAIN);
+          ph = 0;
+          frameCount = 0;
+          break;
+        case THRE_PAIN:
+          ph_pain = ph;
+          mygui.setFlowState(FlowState.THRE_COMP);
+          ph = 0;
+          frameCount = 0;
+          break;
+        case THRE_COMP:
+          ph_comp = ph;
+          mygui.setFlowState(FlowState.COMPARING);
+          ph = 0;
+          frameCount = 0;
+          break;
+        case COMPARING:
+          fwriter.println(
+            ph_skin + "," + 
+            ph_force+ "," +
+            ph_pain + "," +
+            ph_comp + "," +
+            mygui.getCursor().getCaption()
+          );
+          fwriter.flush();
+          mygui.setCompleteGageValue(mygui.getCompleteGageValue() + (float)(Math.ceil(1000f / 12f)) / 1000f);
+          mygui.setFlowState(FlowState.OUT_OF_PROC);
+          mygui.setCursor(Left_Right.LEFT);
+          frameCount = 0;
+          break;
+      }
+    break;
   }
 }
